@@ -24,7 +24,7 @@ const program = new Command();
 program
   .name('pilidown')
   .description('Lightweight Bilibili downloader CLI')
-  .version('0.2.0');
+  .version('0.2.1');
 
 registerInfoCommand(program);
 registerStreamCommand(program);

@@ -20,7 +20,7 @@ import { setJsonMode, error as logError } from '../utils/logger';
 export function registerDownloadCommand(program: Command): void {
   program
     .command('download <url-or-id>')
-    .description('Download a Bilibili video (multi-thread + fMP4 passthrough merge)')
+    .description('Download a Bilibili video (multi-thread + FFmpeg/builtin merge)')
     .option('--quality <qn>', 'Preferred video quality; default is 80 when logged in, 16 anonymously')
     .option('--codec <id>', 'Preferred video codec id (7=AVC, 12=HEVC, 13=AV1)', (v: string) => parseInt(v, 10))
     .option('--audio-quality <id>', 'Preferred audio id; default is 30280 when logged in, 30216 anonymously', (v: string) => parseInt(v, 10))
@@ -33,6 +33,7 @@ export function registerDownloadCommand(program: Command): void {
     .option('--filename <name>', 'Override base filename (no extension)')
     .option('--threads <n>', 'Number of download threads per stream', (v: string) => parseInt(v, 10), 8)
     .option('--no-merge', 'Skip merge; keep separate .m4v + .m4a')
+    .option('--builtin-merge', 'Skip system ffmpeg; force builtin pure-JS merge')
     .option('--container <fmt>', 'Output container: fmp4 (default, O(1) memory) or mp4 (progressive compatibility)', 'fmp4')
     .option('--no-resume', 'Disable resumable download and discard existing partial state')
     .option('--max-media-mem <mb>', 'Max memory in MB for progressive MP4 conversion (default 4096)', (v: string) => parseInt(v, 10), 4096)
@@ -56,6 +57,7 @@ export function registerDownloadCommand(program: Command): void {
           filename?: string;
           threads: number;
           merge: boolean;
+          builtinMerge?: boolean;
           container: 'fmp4' | 'mp4';
           resume: boolean;
           maxMediaMem?: number;
@@ -88,6 +90,7 @@ export function registerDownloadCommand(program: Command): void {
             filename: opts.filename,
             threads: opts.threads,
             noMerge: !opts.merge,
+            builtinMerge: opts.builtinMerge,
             container: opts.container,
             noResume: opts.resume === false,
             maxMediaMemMb: opts.maxMediaMem,

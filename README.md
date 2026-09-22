@@ -7,9 +7,9 @@
 
 ---
 
-##Features / 核心特性
+## Features / 核心特性
 
-- 🚀 **零外部二进制依赖**：采用纯 JS 实现 DASH 音视频流合并（fMP4 直通封装，无需单独安装 FFmpeg 或 aria2，开箱即用）。
+- 🚀 **双轨音视频合并引擎**：优先调用系统权威 FFmpeg 进行极速流复制无损封装（`-c copy`）；在无 FFmpeg 环境下自动平滑降级为纯代码级内置流式合并（开箱即用，零必须依赖）。
 - 🤖 **通用智能体技能**：内置标准化 `SKILL.md`，可无缝集成于各类 AI Agent 平台（如 Antigravity、Claude Code、Codex、OpenClaw、Cursor、Trae 等）。
 - 📊 **结构化交互输出**：主要命令均支持 `--json` 流式 JSON Lines 事件格式，方便 LLM 和自动化脚本解析调用。
 - 🔒 **Privacy & Security First / 隐私与安全优先**：用户凭据（Cookie / Token）仅保存在本机；命令输出默认屏蔽 CDN 临时带签名流地址；绝无外部遥测或第三方数据外发。
@@ -50,8 +50,11 @@ bin/pilidown info <url-or-bvid>
 # 查询可用画质与音频流（支持以 JSON Lines 格式供 Agent 解析）
 bin/pilidown stream <url-or-bvid> --json
 
-# 下载单个视频（已登录默认 1080P，未登录默认最低画质以防受限）
+# 下载单个视频（优先调用系统 FFmpeg 流复制封装；无 FFmpeg 时自动平滑降级为内置流式合并）
 bin/pilidown download <url-or-bvid> --output ./downloads
+
+# 显式强制纯内置纯 JS 合并（跳过系统 FFmpeg）
+bin/pilidown download <url-or-bvid> --builtin-merge --output ./downloads
 
 # 下载完整合集
 bin/pilidown download <url-or-bvid> --collection --output ./downloads

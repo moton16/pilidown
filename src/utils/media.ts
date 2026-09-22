@@ -16,15 +16,64 @@
 
 import { readFile, writeFile, rm } from 'node:fs/promises';
 import { statSync } from 'node:fs';
-import { info as logInfo } from './logger';
+import { spawnSync, execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { info as logInfo, warn as logWarn } from './logger';
 import { mergeFmp4 } from './fmp4';
 import { mergeProgressiveMp4 } from './mp4';
+
+const execFileAsync = promisify(execFile);
 
 export { mergeFmp4, mergeProgressiveMp4 };
 
 export interface MergeOptions {
   container?: 'fmp4' | 'mp4';
   maxMediaMemMb?: number;
+  builtinMerge?: boolean;
+}
+
+let _hasFfmpegCache: boolean | null = null;
+
+export function hasSystemFfmpeg(): boolean {
+  if (_hasFfmpegCache !== null) {
+    return _hasFfmpegCache;
+  }
+  try {
+    const res = spawnSync('ffmpeg', ['-version'], {
+      windowsHide: true,
+      timeout: 3000,
+      stdio: 'ignore',
+    });
+    _hasFfmpegCache = res.status === 0;
+  } catch {
+    _hasFfmpegCache = false;
+  }
+  return _hasFfmpegCache;
+}
+
+export function resetFfmpegCache(): void {
+  _hasFfmpegCache = null;
+}
+
+export async function mergeWithFfmpeg(
+  videoPath: string,
+  audioPath: string,
+  destPath: string,
+): Promise<void> {
+  logInfo('merging dash streams with system ffmpeg', { video: videoPath, audio: audioPath, output: destPath });
+  try {
+    await execFileAsync('ffmpeg', [
+      '-y',
+      '-loglevel', 'error',
+      '-i', videoPath,
+      '-i', audioPath,
+      '-c', 'copy',
+      destPath,
+    ], { windowsHide: true });
+    logInfo('ffmpeg merge complete', { path: destPath, size: statSize(destPath) });
+  } catch (err: any) {
+    throw new Error(`ffmpeg merge failed: ${err?.message ?? String(err)}`);
+  }
 }
 
 // tomp4's ambient .d.ts doesn't declare these functions; keep dynamic import + any
@@ -35,7 +84,8 @@ async function tomp4(): Promise<any> {
 
 /**
  * Merge DASH video and audio streams into a single dual-track file.
- * Defaults to fMP4 passthrough merge (O(1) memory).
+ * Prioritizes system ffmpeg when available; falls back to builtin pure-JS merge.
+ * Defaults to fMP4 passthrough merge (O(1) memory) when builtin is used.
  * When container === 'mp4', uses progressive MP4 conversion + box merge.
  * Throws on failure (caller must not swallow).
  */
@@ -45,6 +95,17 @@ export async function mergeDashStreams(
   destPath: string,
   options?: MergeOptions,
 ): Promise<void> {
+  if (!options?.builtinMerge && hasSystemFfmpeg()) {
+    try {
+      await mergeWithFfmpeg(videoPath, audioPath, destPath);
+      return;
+    } catch (err: any) {
+      logWarn('system ffmpeg merge failed, falling back to builtin merge', {
+        error: err?.message ?? String(err),
+      });
+    }
+  }
+
   const container = options?.container ?? 'fmp4';
   if (container === 'mp4') {
     await mergeDashStreamsProgressive(videoPath, audioPath, destPath, options);

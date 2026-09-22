@@ -33,6 +33,23 @@
 - 模型只在对应 agent 的系统提示明确表述底层模型时列出，否则留空
 - 记录当前 commit 自身时无法在文件内写自身 hash（写入后 amend 会改变 hash），此时省略 hash，用「日期 + agent + 类型」定位，或用 `git log -1 -- docs/changelog_developer.md` 查询
 
+## 2026-09-22
+
+### 2026-09-22 · Antigravity/Gemini 3.8 Flash · feat（系统 FFmpeg 优先与内置合并平滑降级，发布 v0.2.1）
+
+- 改动文件：
+  - `src/utils/media.ts` — 新增 `hasSystemFfmpeg`（带状态缓存）、`mergeWithFfmpeg` 与 `resetFfmpegCache`；`mergeDashStreams` 优先调用系统 FFmpeg 进行无损流复制封装（`-c copy`），未安装或执行异常时平滑降级调用内置纯 JS 合并器。
+  - `src/commands/download.ts` — `download` 命令新增 `--builtin-merge` 选项，支持显式跳过系统 FFmpeg 强制走纯内置合并。
+  - `src/services/DownloadService.ts` — `DownloadVideoOptions` 扩充 `builtinMerge` 参数并在单视频、多分页和合集下载全管道中透传。
+  - `tests/unit/mediaFfmpegFallback.test.ts` — 新增单元测试集，全覆盖探测缓存、FFmpeg 优先合并、失败降级、强制内置合并等分支。
+  - `package.json`、`package-lock.json` — 同步版本提升至 `0.2.1`，锁定 `node: >=20.0.0`。
+  - `src/index.ts` — CLI 程序声明版本更新为 `0.2.1`。
+  - `bin/cli.cjs`、`skills/pilidown/bin/cli.cjs` — 重新构建同步版本字符串至 `0.2.1`。
+  - `README.md`、`skills/pilidown/SKILL.md` — 更新双轨音视频合并引擎特性说明、合并容灾机制与命令参数说明。
+- 性质：feat / chore(release)
+- 重新构建：是
+- 备注：v0.2.1 正式发布版本。实现系统 FFmpeg 优先极速流复制无损封装与平滑降级纯代码级合并双轨引擎，兼顾极致封装性能与纯净环境开箱即用。
+
 ## 2026-09-10
 
 ### 2026-09-10 · Antigravity/Gemini 3.8 Flash · chore（发布 v0.2.0 版本）

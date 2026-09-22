@@ -43,6 +43,7 @@ export interface DownloadVideoOptions {
   container?: 'fmp4' | 'mp4'; // default: fmp4 (progressive mp4 available via mp4)
   noResume?: boolean;
   maxMediaMemMb?: number;
+  builtinMerge?: boolean;
 }
 
 export interface DownloadResult {
@@ -249,6 +250,7 @@ export async function downloadVideo(opts: DownloadVideoOptions): Promise<Downloa
       await mergeDashStreams(videoPath, audioPath, mergedPath, {
         container: opts.container,
         maxMediaMemMb: opts.maxMediaMemMb,
+        builtinMerge: opts.builtinMerge,
       });
       safeUnlink(videoPath);
       safeUnlink(audioPath);

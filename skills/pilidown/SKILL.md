@@ -1,13 +1,13 @@
 ---
 name: "pilidown"
-description: "Bilibili 视频/音频/合集/弹幕/字幕下载与数据查询工具。支持免装 ffmpeg 下载视频、提取音频、批量下合集、导弹幕/字幕、查收藏/历史。触发词：下载B站视频、B站视频下载、下载B站音频、B站音频提取、B站合集下载、下载合集、B站弹幕、B站字幕、B站收藏夹、B站历史记录、pilidown。"
+description: "Bilibili 视频/音频/合集/弹幕/字幕下载与数据查询工具。FFmpeg 优先无损封装，无 FFmpeg 时自动无感降级为纯原生内置流式合并；支持提取音频、批量下合集、导出弹幕/字幕、查收藏/历史。触发词：下载B站视频、B站视频下载、下载B站音频、B站音频提取、B站合集下载、下载合集、B站弹幕、B站字幕、B站收藏夹、B站历史记录、pilidown。"
 ---
 
 # pilidown - Bilibili Downloader Skill
 
-轻量级、零外部依赖的 B 站 CLI 与 Agent 技能（仅需 Node.js 20+，无需 ffmpeg、python 或浏览器）。
+轻量级 B 站 CLI 与 Agent 技能（仅需 Node.js 20+；优先使用系统 FFmpeg 权威流复制无损封装，在缺少 FFmpeg 的纯净环境中自动平滑降级为纯代码级内置流式合并）。
 - **执行路径**：`<skill_dir>/bin/pilidown.cmd`（Windows）或 `<skill_dir>/bin/pilidown`（Unix/macOS）。下文简写为 `pilidown`。
-- **运行机制**：预打包单文件（`bin/cli.cjs`），开箱即用，支持断点直写与纯代码级 MP4 容器流式封装。
+- **运行机制**：预打包单文件（`bin/cli.cjs`），开箱即用。具备“FFmpeg 优先 + 内置原生合并自动兜底”的双轨融合引擎与断点直写能力。
 
 ## 标准执行生命周期 (Execution Lifecycle)
 
@@ -25,7 +25,8 @@ description: "Bilibili 视频/音频/合集/弹幕/字幕下载与数据查询�
 
 | 用户意图 | 推荐命令模板 | 关键参数说明 |
 |---|---|---|
-| **下载单视频** | `pilidown download <url-or-bv> --output <dir>` | 默认直通 fMP4（O(1) 内存，免 ffmpeg）。可追加 `-q <qn>` 或 `--page <n>`。 |
+| **下载单视频** | `pilidown download <url-or-bv> --output <dir>` | 优先使用系统 FFmpeg 流复制封装；无 FFmpeg 时自动无感降级为 fMP4 直通合并（O(1) 内存）。可追加 `-q <qn>` 或 `--page <n>`。 |
+| **强制纯内置合并** | `pilidown download <url-or-bv> --builtin-merge --output <dir>` | 显式跳过系统 FFmpeg，强制走纯 Node.js 代码级合并。 |
 | **下载合集** | `pilidown download <url-or-bv> --collection --output <dir>` | 自动遍历 UGC 合集全部集数；输出 `{season}-ep{N}-{title}.mp4`。 |
 | **仅提取音频** | `pilidown download <url-or-bv> --audio-only --output <dir>` | 输出原生最高品质 `.m4a`（无二次转码损耗）。 |
 | **MP4 兼容模式** | `pilidown download <url-or-bv> --container mp4 --output <dir>` | 渐进式双轨 MP4 合并（带 5 倍内存预检护栏，防 OOM）。 |
@@ -47,12 +48,6 @@ description: "Bilibili 视频/音频/合集/弹幕/字幕下载与数据查询�
 | **E_EXPIRED_URL 签名过期** | B 站临时 URL 超时，直接重新运行命令即可自动换取新签名断点续传。 |
 | **断点损坏 / 重来** | 默认开启断点续传（`.part` + `.partstate.json`）；若需彻底重来，追加 `--no-resume`。 |
 
-### 外部 FFmpeg 降级合并 SOP (Fallback Workflow)
-内置合并为纯原生 JS 字节级缝合。若因极端异常合并失败（退出码 1 且报错含 `E_MERGE`），或需特定封装时：
-1. **核实原流存留**：确认目标目录下已下载完毕的 `<name>.m4v` 与 `<name>.m4a` 完好保留（pilidown 合并失败严格保留原流）。
-2. **探测系统环境**：执行 `ffmpeg -version` 检测是否安装了 ffmpeg。若无，提醒用户手动合并或安装 ffmpeg。
-3. **极速无损封装**：
-   ```bash
-   ffmpeg -i "<video.m4v>" -i "<audio.m4a>" -c copy -y "<output.mp4>"
-   ```
-4. **清理并交付**：成功后安全删除分离的 `.m4v` 和 `.m4a`，将合成的 `.mp4` 交付给用户。
+### 合并容灾机制说明 (Muxing Fallback Architecture)
+1. **自动双轨容灾**：程序优先尝试系统 `ffmpeg -c copy` 流复制封装；若系统中未安装 FFmpeg，或 FFmpeg 运行时异常报错，系统会自动记录 Warn 并**平滑降级调用内置纯 JS 合并器**，绝不中断下载流程。
+2. **极端双崩兜底**：若两级合并均遭遇流彻底损坏（退出码 1 且报错含 `E_MERGE`），原始分离流 `.m4v` 和 `.m4a` 仍会完好保留在目标目录，可提示用户检查磁盘或保留流。
